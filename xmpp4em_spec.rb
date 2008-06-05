@@ -18,10 +18,10 @@ end
 describe 'XMPP4EM' do
   behaves_like 'eventmachine'
 
-  @foo = XMPP4EM::Client.new('foo@localhost', 'test', :auto_register => true)
-  @bar = XMPP4EM::Client.new('bar@localhost', 'test', :auto_register => true)
+  @foo = XMPP4EM::Client.new('test1@jsierles.local', 't00tt00t', :auto_register => true)
+  @bar = XMPP4EM::Client.new('test2@jsierles.local', 't00tt00t', :auto_register => true)
 
-  should 'login to an xmpp server' do
+  it 'should login to an xmpp server' do
     @foo.on(:login) do
       @foo.send Jabber::Presence.new
       wake
@@ -33,7 +33,7 @@ describe 'XMPP4EM' do
     @foo.should.be.connected?
   end
 
-  should 'send messages to others' do
+  it 'should send messages to others' do
     @bar.on(:login) do
       @bar.send Jabber::Presence.new do
         wake
@@ -49,7 +49,7 @@ describe 'XMPP4EM' do
     @bar.connect
     wait
 
-    @foo.send_msg 'bar@localhost', 'hello'
+    @foo.send_msg 'test2@jsierles.local', 'hello'
     wait
 
     received.should == 'hello'
