@@ -201,6 +201,8 @@ module XMPP4EM
       send Jabber::Message::new(to, msg).set_type(:chat)
     end
 
+    alias_method :send_with_id, :send
+    
     def send data, &blk
       raise NotConnected unless connected?
 
