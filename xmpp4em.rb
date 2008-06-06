@@ -309,9 +309,9 @@ module XMPP4EM
       @callbacks[type] << blk
     end
     
-    def add_message_callback  (&blk) on :message,   &blk end
-    def add_presence_callback (&blk) on :presence,  &blk end
-    def add_iq_callback       (&blk) on :iq,        &blk end
+    def add_message_callback  (priority = 0, ref = nil, &blk) on :message,   &blk end
+    def add_presence_callback (priority = 0, ref = nil, &blk) on :presence,  &blk end
+    def add_iq_callback       (priority = 0, ref = nil, &blk) on :iq,        &blk end
     def on_exception          (&blk) on :exception, &blk end
   end
 end
