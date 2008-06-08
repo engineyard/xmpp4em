@@ -9,7 +9,7 @@ require 'xmpp4r/iq'
 require 'xmpp4r/message'
 require 'xmpp4r/presence'
 require 'xmpp4r/sasl'
-
+require 'resolv'
 require 'em'
 
 module XMPP4EM
@@ -17,7 +17,7 @@ module XMPP4EM
 
   class Connection < EventMachine::Connection
     def initialize host
-      @host = host
+      @domain = host
       @client = nil
     end
     attr_accessor :client
@@ -82,7 +82,7 @@ module XMPP4EM
     def init
       send "<?xml version='1.0' ?>" unless @started
       @started = false
-      send "<stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' xml:lang='en' version='1.0' to='#{@host}'>"
+      send "<stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='jabber:client' xml:lang='en' version='1.0' to='#{@domain}'>"
     end
 
     private
@@ -171,8 +171,9 @@ module XMPP4EM
     end
 
     def connect host = jid.domain, port = 5222
+      target_host, target_port = resolve_host(host)
       EM.run(true) do
-        EM.connect host, port, Connection, host do |conn|
+        EM.connect target_host, target_port, Connection, jid.domain do |conn|
           @connection = conn
           conn.client = self
         end
@@ -183,6 +184,27 @@ module XMPP4EM
       @connection and !@connection.error?
     end
 
+    def resolve_host(domain)
+      srv = []
+      Resolv::DNS.open { |dns|
+        # If ruby version is too old and SRV is unknown, this will raise a NameError
+        # which is catched below
+        debug("RESOLVING:\n_xmpp-client._tcp.#{domain} (SRV)")
+        srv = dns.getresources("_xmpp-client._tcp.#{domain}", Resolv::DNS::Resource::IN::SRV)
+      }
+
+      if !srv.empty?
+        # Sort SRV records: lowest priority first, highest weight first
+        srv.sort! { |a,b| (a.priority != b.priority) ? (a.priority <=> b.priority) : (b.weight <=> a.weight) }        
+        debug "USING #{srv.first.target.to_s}"
+        return srv.first.target.to_s, srv.first.port
+      else
+        debug "USING #{domain}:5222"
+        
+        return domain, 5222
+      end
+    end
+    
     def login &blk
       Jabber::SASL::new(self, 'PLAIN').auth(@pass)
       @auth_callback = blk if block_given?
@@ -201,8 +223,6 @@ module XMPP4EM
       send Jabber::Message::new(to, msg).set_type(:chat)
     end
 
-    alias_method :send_with_id, :send
-    
     def send data, &blk
       raise NotConnected unless connected?
 
@@ -309,9 +329,9 @@ module XMPP4EM
       @callbacks[type] << blk
     end
     
-    def add_message_callback  (priority = 0, ref = nil, &blk) on :message,   &blk end
-    def add_presence_callback (priority = 0, ref = nil, &blk) on :presence,  &blk end
-    def add_iq_callback       (priority = 0, ref = nil, &blk) on :iq,        &blk end
+    def add_message_callback  (&blk) on :message,   &blk end
+    def add_presence_callback (&blk) on :presence,  &blk end
+    def add_iq_callback       (&blk) on :iq,        &blk end
     def on_exception          (&blk) on :exception, &blk end
   end
 end
